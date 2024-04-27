@@ -302,3 +302,10 @@ TSWLatexianTemp*
 
 geo/
 *.tif
+
+build/
+dist/
+logs/
+mask_rcnn.egg-info/
+__pycache__/
+mask_rcnn_coco.h5
