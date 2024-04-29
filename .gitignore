@@ -300,12 +300,7 @@ TSWLatexianTemp*
 # Uncomment the next line to have this generated file ignored.
 #*Notes.bib
 
-geo/
-*.tif
 
-build/
-dist/
-logs/
-mask_rcnn.egg-info/
+dataset/
 __pycache__/
-mask_rcnn_coco.h5
+lightning_logs/
