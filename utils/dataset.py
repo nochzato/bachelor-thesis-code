@@ -5,8 +5,6 @@ import tifffile
 from torch.utils.data import Dataset
 
 
-# Define the dataset class
-# Images and correspoindng masks are images
 class CraterDataset(Dataset):
     def __init__(self, img_dir, mask_dir):
         super().__init__()
@@ -26,7 +24,7 @@ class CraterDataset(Dataset):
         image = tifffile.imread(img_path)
         mask = tifffile.imread(mask_path)
 
-        # Remove INR image channel
+        # Remove NIR image channel
         image = image[:, :, :3]
 
         # Apply min-max scaling to the image
