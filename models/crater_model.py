@@ -4,8 +4,12 @@ import torch
 
 
 class CraterModel(pl.LightningModule):
-    def __init__(self, arch, encoder_name, in_channels, out_classes, **kwargs):
+    def __init__(
+        self, arch, encoder_name, in_channels, out_classes, loss_fn, lr, **kwargs
+    ):
         super().__init__()
+        self.save_hyperparameters()
+
         self.model = smp.create_model(
             arch,
             encoder_name=encoder_name,
@@ -22,7 +26,8 @@ class CraterModel(pl.LightningModule):
         self.validation_step_outputs = []
         self.test_step_outputs = []
 
-        self.loss_fn = smp.losses.DiceLoss(smp.losses.BINARY_MODE, from_logits=True)
+        self.loss_fn = loss_fn
+        self.learning_rate = lr
 
     def forward(self, image):
         # Normalize the image
@@ -64,17 +69,11 @@ class CraterModel(pl.LightningModule):
         }
 
     def shared_epoch_end(self, outputs, stage):
+        average_loss = torch.stack([x["loss"] for x in outputs]).mean()
         tp = torch.cat([x["tp"] for x in outputs])
         fp = torch.cat([x["fp"] for x in outputs])
         fn = torch.cat([x["fn"] for x in outputs])
         tn = torch.cat([x["tn"] for x in outputs])
-
-        if stage == "train":
-            self.training_step_outputs = []
-        elif stage == "valid":
-            self.validation_step_outputs = []
-        elif stage == "test":
-            self.test_step_outputs = []
 
         per_image_iou = smp.metrics.iou_score(
             tp, fp, fn, tn, reduction="micro-imagewise"
@@ -82,7 +81,15 @@ class CraterModel(pl.LightningModule):
 
         dataset_iou = smp.metrics.iou_score(tp, fp, fn, tn, reduction="micro")
 
+        if stage == "train":
+            self.training_step_outputs = []
+        elif stage == "val":
+            self.validation_step_outputs = []
+        elif stage == "test":
+            self.test_step_outputs = []
+
         metrics = {
+            f"{stage}_loss": average_loss,
             f"{stage}_per_image_iou": per_image_iou,
             f"{stage}_dataset_iou": dataset_iou,
         }
@@ -98,14 +105,15 @@ class CraterModel(pl.LightningModule):
         return self.shared_epoch_end(outputs=self.training_step_outputs, stage="train")
 
     def validation_step(self, batch, batch_idx):
-        out = self.shared_step(batch, "valid")
+        out = self.shared_step(batch, "val")
         self.validation_step_outputs.append(out)
         return out
 
     def on_validation_epoch_end(self):
-        return self.shared_epoch_end(
-            outputs=self.validation_step_outputs, stage="valid"
-        )
+        return self.shared_epoch_end(outputs=self.validation_step_outputs, stage="val")
+
+    def on_test_epoch_start(self):
+        self.logger.log_hyperparams(self.hparams)
 
     def test_step(self, batch, batch_idx):
         out = self.shared_step(batch, "test")
@@ -116,4 +124,4 @@ class CraterModel(pl.LightningModule):
         return self.shared_epoch_end(outputs=self.test_step_outputs, stage="test")
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=0.0001)
+        return torch.optim.Adam(self.parameters(), lr=self.learning_rate)
