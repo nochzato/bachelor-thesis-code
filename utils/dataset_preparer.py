@@ -6,7 +6,7 @@ import numpy as np
 import tifffile
 
 
-class CraterDatasetPreparer:
+class DatasetPreparer:
     def __init__(self, IMG_DIM, NUM_SAMPLES=1000, MASK_PERCENTAGE=0.1):
         self.IMG_DIM = IMG_DIM
         self.NUM_SAMPLES = NUM_SAMPLES
