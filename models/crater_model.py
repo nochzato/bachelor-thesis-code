@@ -30,7 +30,6 @@ class CraterModel(pl.LightningModule):
         self.learning_rate = lr
 
     def forward(self, image):
-        # Normalize the image
         image = (image - self.mean) / self.std
         mask = self.model(image.float())
 
@@ -39,15 +38,9 @@ class CraterModel(pl.LightningModule):
     def shared_step(self, batch, step):
         image = batch["image"]
 
-        assert image.ndim == 4
-
         h, w = image.shape[2:]
 
-        assert h % 32 == 0 and w % 32 == 0
-
         mask = batch["mask"]
-
-        assert mask.ndim == 4
 
         logits_mask = self.forward(image)
 
@@ -81,6 +74,12 @@ class CraterModel(pl.LightningModule):
 
         dataset_iou = smp.metrics.iou_score(tp, fp, fn, tn, reduction="micro")
 
+        recall = smp.metrics.recall(tp, fp, fn, tn, reduction="micro")
+
+        precision = smp.metrics.precision(tp, fp, fn, tn, reduction="micro")
+
+        f1 = smp.metrics.f1_score(tp, fp, fn, tn, reduction="micro")
+
         if stage == "train":
             self.training_step_outputs = []
         elif stage == "val":
@@ -92,9 +91,12 @@ class CraterModel(pl.LightningModule):
             f"{stage}_loss": average_loss,
             f"{stage}_per_image_iou": per_image_iou,
             f"{stage}_dataset_iou": dataset_iou,
+            f"{stage}_recall": recall,
+            f"{stage}_precision": precision,
+            f"{stage}_f1": f1,
         }
 
-        self.log_dict(metrics, prog_bar=True)
+        self.log_dict(metrics)
 
     def training_step(self, batch, batch_idx):
         out = self.shared_step(batch, "train")
